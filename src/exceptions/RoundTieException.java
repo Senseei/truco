@@ -1,6 +1,6 @@
 package exceptions;
 
-public class RoundTieException extends RuntimeException {
+public class RoundTieException extends Exception {
     public RoundTieException(String message) {
         super(message);
     }

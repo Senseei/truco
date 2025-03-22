@@ -2,7 +2,7 @@ package exceptions;
 
 import entities.Jogador;
 
-public class WinnerException extends RuntimeException {
+public class WinnerException extends Exception {
     private final Jogador winner;
 
     public WinnerException(Jogador winner) {
