@@ -16,9 +16,8 @@ import java.util.LinkedList;
 import java.util.Scanner;
 
 public class TrucoUI {
-
-    private Scanner sc;
-    private Screen screen;
+    private final Scanner sc;
+    private final Screen screen;
 
     public TrucoUI(Scanner sc, Screen screen) {
         this.sc = sc;
@@ -28,6 +27,8 @@ public class TrucoUI {
     public Screen getScreenBuilder() {
         return screen;
     }
+
+    // ===== Screen Management Methods =====
 
     public void clearScreen() {
         System.out.print("\033[H\033[2J\033[3J");
@@ -51,10 +52,11 @@ public class TrucoUI {
         System.out.println(screen);
     }
 
+    // ===== Player Management Methods =====
+
     public Jogador createJogador() {
         System.out.print("Digite o nome do jogador: ");
-        String nome = sc.nextLine();
-        return new Jogador(nome);
+        return new Jogador(sc.nextLine());
     }
 
     public Queue<Jogador> prepararJogadores() {
@@ -65,11 +67,13 @@ public class TrucoUI {
         return jogadores;
     }
 
+    // ===== Action Management Methods =====
+
     public String getAction() {
         System.out.print("Escolha uma ação (digite o número): ");
         try {
             int actionIndex = Integer.parseInt(sc.nextLine());
-            if (actionIndex >= 0 && actionIndex < screen.getActions().size()) {
+            if (isValidActionIndex(actionIndex)) {
                 String action = screen.getActions().get(actionIndex);
                 screen.setError(null);
                 return action;
@@ -77,36 +81,56 @@ public class TrucoUI {
         } catch (NumberFormatException e) {
             // Handle non-numeric input
         }
+
         screen.setError("Ação inválida");
         printScreen();
         return getAction();
     }
 
+    private boolean isValidActionIndex(int actionIndex) {
+        return actionIndex >= 0 && actionIndex < screen.getActions().size();
+    }
+
     public List<String> getAvailableActions(Mesa mesa) {
         List<String> actions = new ArrayList<>();
         Truco truco = mesa.getRodadaAtual().getTruco();
+        Jogador currentPlayer = mesa.getRodadaAtual().getVez();
 
-        if (truco != null && !truco.isAceito() &&
-                !mesa.getRodadaAtual().getVez().equals(truco.getQuemPediu())) {
-            actions.add("Aceitar");
-            actions.add("Fugir");
-
-            if (truco.getPontos() < 12) {
-                actions.add(getNextTrucoAction(truco.getPontos()));
-            }
+        if (isTrucoResponsePending(mesa, truco)) {
+            addTrucoResponseActions(actions, truco);
         } else {
             actions.add("Jogar Carta");
-
-            if (truco == null || truco.isAceito()) {
-                int nextValue = truco == null ? 3 : getNextTrucoValue(truco.getPontos());
-                if (nextValue <= 12) {
-                    actions.add(getNextTrucoAction(truco == null ? 0 : truco.getPontos()));
-                }
-            }
+            addTrucoRequestActions(actions, truco, currentPlayer);
         }
 
         actions.add("Sair");
         return actions;
+    }
+
+    private boolean isTrucoResponsePending(Mesa mesa, Truco truco) {
+        return truco != null &&
+                !truco.isAceito() &&
+                !mesa.getRodadaAtual().getVez().equals(truco.getQuemPediu());
+    }
+
+    private void addTrucoResponseActions(List<String> actions, Truco truco) {
+        actions.add("Aceitar");
+        actions.add("Fugir");
+
+        if (truco.getPontos() < 12) {
+            actions.add(getNextTrucoAction(truco.getPontos()));
+        }
+    }
+
+    private void addTrucoRequestActions(List<String> actions, Truco truco, Jogador currentPlayer) {
+        if (truco == null) {
+            actions.add(getNextTrucoAction(0));
+        } else if (truco.isAceito() && !currentPlayer.equals(truco.getQuemPediu())) {
+            int nextValue = getNextTrucoValue(truco.getPontos());
+            if (nextValue <= 12) {
+                actions.add(getNextTrucoAction(truco.getPontos()));
+            }
+        }
     }
 
     private String getNextTrucoAction(int currentPoints) {
@@ -129,37 +153,46 @@ public class TrucoUI {
         }
     }
 
-    public void handleAction(String action, Mesa mesa) {
+    public void handleAction(String action, Mesa mesa) throws RoundTieException, RoundWinnerException, GameWinnerException {
         try {
             if (action.equals("Jogar Carta")) {
                 playCard(mesa);
             } else if (action.equals("Aceitar")) {
-                mesa.aceitarTruco();
-                Jogador quemPediu = mesa.getRodadaAtual().getTruco().getQuemPediu();
-                if (!mesa.getRodadaAtual().getVez().equals(quemPediu)) {
-                    mesa.passarVezPara(quemPediu);
-                }
-                updateScreen(mesa);
+                handleTrucoAcceptance(mesa);
             } else if (action.equals("Fugir")) {
                 mesa.fugir();
                 updateScreen(mesa);
-            } else if (action.contains("Truco") || action.contains("Seis") ||
-                    action.contains("Nove") || action.contains("Doze")) {
-                int points = extractPoints(action);
-                Jogador quemPediu = mesa.getRodadaAtual().getVez();
-                mesa.truco(points);
-                mesa.proximoJogador();
-                updateScreen(mesa);
+            } else if (isTrucoAction(action)) {
+                handleTrucoRequest(action, mesa);
             } else if (action.equals("Sair")) {
                 System.exit(0);
             } else {
                 screen.setError("Ação desconhecida");
             }
-        } catch (RoundWinnerException | GameWinnerException | RoundTieException e) {
-            throw e;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             screen.setError("Erro: " + e.getMessage());
         }
+    }
+
+    private boolean isTrucoAction(String action) {
+        return action.contains("Truco") || action.contains("Seis") ||
+                action.contains("Nove") || action.contains("Doze");
+    }
+
+    private void handleTrucoAcceptance(Mesa mesa) {
+        mesa.aceitarTruco();
+        Jogador quemPediu = mesa.getRodadaAtual().getTruco().getQuemPediu();
+        if (!mesa.getRodadaAtual().getVez().equals(quemPediu)) {
+            mesa.passarVezPara(quemPediu);
+        }
+        updateScreen(mesa);
+    }
+
+    private void handleTrucoRequest(String action, Mesa mesa) throws GameWinnerException {
+        int points = extractPoints(action);
+        mesa.truco(points);
+        mesa.proximoJogador();
+        updateScreen(mesa);
     }
 
     private int extractPoints(String action) {
@@ -170,20 +203,20 @@ public class TrucoUI {
         return 3; // Default to truco
     }
 
-    private void playCard(Mesa mesa) {
+    private void playCard(Mesa mesa) throws RoundTieException, RoundWinnerException, GameWinnerException {
         System.out.print("Digite o número da carta para jogar: ");
         try {
             int index = Integer.parseInt(sc.nextLine());
             mesa.jogada(index);
             updateScreen(mesa);
-        } catch (RoundWinnerException | GameWinnerException | RoundTieException e) {
-            throw e;
         } catch (NumberFormatException e) {
             screen.setError("Índice inválido");
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             screen.setError(e.getMessage());
         }
     }
+
+    // ===== Game State Display Methods =====
 
     public void updateScreen(Mesa mesa) {
         screen.setMesa(mesa);
@@ -193,51 +226,47 @@ public class TrucoUI {
 
     public void showRoundTie() {
         screen.setActions(new ArrayList<>());
-
-        StringBuilder footer = new StringBuilder("═════════════════════════════════════\n");
-        footer.append("         🎮 RODADA FINALIZADA!\n");
-        footer.append("         RESULTADO: EMPATE!\n");
-
-        Rodada ultimaRodada = screen.getMesa().getUltimaRodada();
-        int index = 1;
-        for (Disputa disputa : ultimaRodada.getDisputas()) {
-            if (disputa != null) {
-                footer.append("         Disputa ").append(index).append(": ").append(disputa).append("\n");
-                index++;
-            }
-        }
-        footer.append("═════════════════════════════════════");
-        screen.setFooter(footer.toString());
+        screen.setFooter(buildRoundEndFooter("EMPATE!"));
     }
 
     public void showRoundWinner(Jogador winner) {
         screen.setActions(new ArrayList<>());
+        screen.setFooter(buildRoundEndFooter("VENCEDOR: " + winner.getName()));
+    }
 
-
+    private String buildRoundEndFooter(String resultMessage) {
         StringBuilder footer = new StringBuilder("═════════════════════════════════════\n");
         footer.append("         🎮 RODADA FINALIZADA!\n");
-        footer.append("         VENCEDOR: ").append(winner.getName()).append("\n");
+        footer.append("         RESULTADO: ").append(resultMessage).append("\n");
+
+        appendDisputeDetails(footer);
+        footer.append("═════════════════════════════════════");
+
+        return footer.toString();
+    }
+
+    private void appendDisputeDetails(StringBuilder footer) {
         Rodada ultimaRodada = screen.getMesa().getUltimaRodada();
         int index = 1;
         for (Disputa disputa : ultimaRodada.getDisputas()) {
             if (disputa != null) {
-                footer.append("         Disputa ").append(index).append(": ").append(disputa).append("\n");
+                footer.append("         Disputa ").append(index).append(": ")
+                        .append(disputa).append("\n");
                 index++;
             }
         }
-        footer.append("═════════════════════════════════════");
-        screen.setFooter(footer.toString());
     }
 
     public void showGameWinner(Jogador winner) {
         screen.setActions(new ArrayList<>());
 
-        String footer = "═════════════════════════════════════\n";
-        footer += "🏆 FIM DE JOGO!\n";
-        footer += "VENCEDOR: " + winner.getName() + "\n";
-        footer += "Pontuação final: " + winner.getPontos() + " pontos\n";
-        footer += "═════════════════════════════════════";
-        screen.setFooter(footer);
+        StringBuilder footer = new StringBuilder("═════════════════════════════════════\n");
+        footer.append("🏆 FIM DE JOGO!\n");
+        footer.append("VENCEDOR: ").append(winner.getName()).append("\n");
+        footer.append("Pontuação final: ").append(winner.getPontos()).append(" pontos\n");
+        footer.append("═════════════════════════════════════");
+
+        screen.setFooter(footer.toString());
     }
 
     public void waitForContinue() {
