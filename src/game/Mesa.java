@@ -20,11 +20,7 @@ public class Mesa {
     private Rodada rodadaAtual;
 
     public Mesa(Queue<Jogador> jogadores, Dealer dealer) {
-        this.jogadores = jogadores;
-        this.filaParaJogarPrimeiro = new LinkedList<>(jogadores);
-        this.dealer = dealer;
-        this.baralho = Baralho.prepararBaralho(true);
-        rodadaAtual = new Rodada(filaParaJogarPrimeiro.peek());
+        this(jogadores, dealer, Baralho.prepararBaralho(true));
     }
 
     public Mesa(Queue<Jogador> jogadores, Dealer dealer, Baralho baralho) {
@@ -55,17 +51,33 @@ public class Mesa {
         baralho.definirManilhas(vira);
     }
 
-    public void jogada(int index) {
+    public void jogada(int index) throws RoundTieException, RoundWinnerException, GameWinnerException {
+        validarIndiceCartaJogada(index);
+
+        jogarCarta(index);
+
+        processarResultadoJogada();
+    }
+
+    private void validarIndiceCartaJogada(int index) {
         if (index < 0 || index >= rodadaAtual.getVez().getMao().size()) {
             throw new IllegalArgumentException("Carta inválida");
         }
-        rodadaAtual.atualizaDisuputa(rodadaAtual.getVez().jogarCarta(index));
+    }
 
+    private void jogarCarta(int index) {
+        rodadaAtual.atualizaDisuputa(rodadaAtual.getVez().jogarCarta(index));
+    }
+
+    private void processarResultadoJogada() throws GameWinnerException, RoundWinnerException, RoundTieException{
         Jogador vencedorRodada = rodadaAtual.verificaVencedor();
+
         if (vencedorRodada != null) {
             pontuarJogador(vencedorRodada);
             throw new RoundWinnerException(vencedorRodada);
-        } else if (rodadaAtual.isFull()) {
+        }
+
+        if (rodadaAtual.isFull()) {
             finalizarRodada();
             throw new RoundTieException("Rodada empatada");
         }
@@ -85,20 +97,27 @@ public class Mesa {
         rodadaAtual.setVez(jogadores.peek());
     }
 
-    private void pontuarJogador(Jogador jogador) {
+    private void pontuarJogador(Jogador jogador) throws GameWinnerException {
         Truco truco = rodadaAtual.getTruco();
+        int pontos = calcularPontos(truco);
 
-        if (truco == null) {
-            jogador.pontuar(1);
-        } else {
-            jogador.pontuar(truco.isAceito() ? truco.getPontos() : truco.getPontosAnteriores());
-        }
+        jogador.pontuar(pontos);
 
+        verificarVencedorJogo(jogador);
+
+        finalizarRodada();
+    }
+
+    private int calcularPontos(Truco truco) {
+        return truco == null ? 1 :
+                truco.isAceito() ? truco.getPontos() :
+                        truco.getPontosAnteriores();
+    }
+
+    private void verificarVencedorJogo(Jogador jogador) throws GameWinnerException {
         if (jogador.getPontos() >= 12) {
             throw new GameWinnerException(jogador);
         }
-
-        finalizarRodada();
     }
 
     private void finalizarRodada() {
@@ -117,35 +136,53 @@ public class Mesa {
         rodadaAtual.getTruco().aceitar();
     }
 
-    public void fugir() {
+    public void fugir() throws GameWinnerException {
         pontuarJogador(rodadaAtual.getTruco().getQuemPediu());
     }
 
     public void truco(int pontos) {
         Truco truco = rodadaAtual.getTruco();
-        rodadaAtual.setTruco(truco == null ? new Truco(rodadaAtual.getVez()) : new Truco(pontos, truco.getPontos(), rodadaAtual.getVez()));
+        boolean isNovoPedido = truco == null;
+
+        rodadaAtual.setTruco(isNovoPedido ?
+                new Truco(rodadaAtual.getVez()) :
+                new Truco(pontos, truco.getPontos(), rodadaAtual.getVez()));
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        // Header with game information
-        sb.append("╔════════════════════════════════════════════════╗\n");
+        appendHeader(sb);
+        appendPlayers(sb);
+        appendVira(sb);
+        appendDisputas(sb);
+        appendFooter(sb);
 
-        // Display all players and their scores
+        return sb.toString();
+    }
+
+    private void appendHeader(StringBuilder sb) {
+        sb.append("╔════════════════════════════════════════════════╗\n");
+    }
+
+    private void appendPlayers(StringBuilder sb) {
         sb.append("║ PLAYERS:                                       ║\n");
         for (Jogador jogador : jogadores) {
+            String currentTurn = jogador.equals(rodadaAtual.getVez()) ? " (current turn) " : "";
             sb.append(String.format("║ %s: %d points%s\n",
                     jogador.getName(),
                     jogador.getPontos(),
-                    jogador.equals(rodadaAtual.getVez()) ? " (current turn) " : ""));
+                    currentTurn));
         }
+    }
 
-        // Display vira card
-        sb.append("║ Vira: ").append(vira == null ? "Not turned yet" : vira).append("\n");
+    private void appendVira(StringBuilder sb) {
+        String viraText = vira == null ? "Not turned yet" : vira.toString();
+        sb.append("║ Vira: ").append(viraText).append("\n");
+    }
 
-        // Display current dispute/table
+    private void appendDisputas(StringBuilder sb) {
         sb.append("║                                                ║\n");
         sb.append("║ CARDS ON TABLE:                                ║\n");
 
@@ -158,9 +195,9 @@ public class Mesa {
             }
             sb.append(String.format("║ Dispute %d: %s\n", disputeNum, rodadaAtual.getDisputaAtual()));
         }
+    }
 
+    private void appendFooter(StringBuilder sb) {
         sb.append("╚════════════════════════════════════════════════╝");
-
-        return sb.toString();
     }
 }
