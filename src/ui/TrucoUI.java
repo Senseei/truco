@@ -49,6 +49,7 @@ public class TrucoUI {
 
     public void printScreen() {
         clearScreen();
+        checkMaoDeOnze(screen.getMesa().getRodadaAtual().getVez());
         System.out.println(screen);
     }
 
@@ -103,6 +104,7 @@ public class TrucoUI {
             addTrucoRequestActions(actions, truco, currentPlayer);
         }
 
+        actions.add("Fugir");
         actions.add("Sair");
         return actions;
     }
@@ -115,7 +117,6 @@ public class TrucoUI {
 
     private void addTrucoResponseActions(List<String> actions, Truco truco) {
         actions.add("Aceitar");
-        actions.add("Fugir");
 
         if (truco.getPontos() < 12) {
             actions.add(getNextTrucoAction(truco.getPontos()));
@@ -273,5 +274,16 @@ public class TrucoUI {
         System.out.println("\nPressione ENTER para continuar...");
         sc.nextLine();
         screen.setFooter(null);
+    }
+
+    public void checkMaoDeOnze(Jogador currentPlayer) {
+        if (currentPlayer.getPontos() == 11) {
+            StringBuilder footer = new StringBuilder("═════════════════════════════════════\n");
+            footer.append("🎮 MÃO DE ONZE!\n");
+            footer.append("Você está com 11 pontos. Decida se deseja continuar jogando ou fugir.\n");
+            footer.append("═════════════════════════════════════\n");
+
+            screen.setFooter(footer.toString());
+        }
     }
 }
