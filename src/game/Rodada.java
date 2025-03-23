@@ -12,6 +12,7 @@ public class Rodada implements CartasUsadas {
     private Disputa disputaAtual = new Disputa();
     private Truco truco;
     private Jogador vez;
+    private boolean asCegas;
 
     public Rodada(Jogador vez) {
         this.vez = vez;
@@ -60,6 +61,10 @@ public class Rodada implements CartasUsadas {
         return disputas[2] != null;
     }
 
+    public boolean isAsCegas() {
+        return asCegas;
+    }
+
     public boolean hasEnoughMatchs() {
         return disputas[0] != null && disputas[0].isFull() && disputas[1] != null && disputas[1].isFull();
     }
@@ -99,17 +104,22 @@ public class Rodada implements CartasUsadas {
     }
 
     private Jogador resolveWithFirstMatchWinner(Jogador vencedorPrimeira, Jogador vencedorSegunda, Jogador vencedorTerceira) {
-        // First match winner also won second match
         if (vencedorSegunda == null || vencedorPrimeira.equals(vencedorSegunda)) {
             return vencedorPrimeira;
         }
 
-        // First match winner also won third match
         if (isFull() && vencedorTerceira == null || vencedorPrimeira.equals(vencedorTerceira)) {
             return vencedorPrimeira;
         }
 
-        // First match winner didn't win any other match
         return null;
+    }
+
+    public void hideCards() {
+        asCegas = true;
+    }
+
+    public void showCards() {
+        asCegas = false;
     }
 }

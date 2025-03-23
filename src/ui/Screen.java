@@ -68,7 +68,7 @@ public class Screen {
         // Display player's cards in a more readable format
         screen.append("Suas cartas: \n");
         for (int i = 0; i < maoDoJogador.size(); i++) {
-            screen.append(String.format("[%d] %s   ", i, maoDoJogador.get(i)));
+            screen.append(String.format("[%d] %s   ", i, getMesa().getRodadaAtual().isAsCegas() ? "|?|" : maoDoJogador.get(i)));
         }
         screen.append("\n\n");
 
