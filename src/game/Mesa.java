@@ -9,6 +9,7 @@ import exceptions.RoundTieException;
 import exceptions.RoundWinnerException;
 
 import java.util.*;
+import java.util.function.Function;
 
 public class Mesa {
     private final Queue<Jogador> filaParaJogarPrimeiro;
@@ -18,6 +19,10 @@ public class Mesa {
     private Carta vira;
     private List<Rodada> rodadas = new ArrayList<>();
     private Rodada rodadaAtual;
+
+    private static final int PONTOS_FUGA_MAO_ONZE = 1;
+    private static final int PONTOS_VITORIA_MAO_ONZE = 3;
+    private static final int PONTOS_VITORIA_JOGO = 12;
 
     public Mesa(Queue<Jogador> jogadores, Dealer dealer) {
         this(jogadores, dealer, Baralho.prepararBaralho(true));
@@ -71,7 +76,7 @@ public class Mesa {
         Jogador vencedorRodada = rodadaAtual.verificaVencedor();
 
         if (vencedorRodada != null) {
-            pontuarJogador(vencedorRodada);
+            pontuarVencedor(vencedorRodada);
             throw new RoundWinnerException(vencedorRodada);
         }
 
@@ -95,23 +100,26 @@ public class Mesa {
         rodadaAtual.setVez(jogadores.peek());
     }
 
-    private void pontuarJogador(Jogador jogador) throws GameWinnerException {
-        Truco truco = rodadaAtual.getTruco();
-        int pontos = isMaoDeOnze() && rodadaAtual.getVez().getPontos() != 11 ? 3 : calcularPontos(truco);
+    private void pontuarVencedor(Jogador vencedor) throws GameWinnerException {
+        Function<Jogador, Integer> estrategiaPontuacao = isMaoDeOnze() ?
+                jogador -> PONTOS_VITORIA_MAO_ONZE :
+                this::calcularPontosPadrao;
 
-        jogador.pontuar(pontos);
-        verificarVencedorJogo(jogador);
+        int pontos = estrategiaPontuacao.apply(vencedor);
+        vencedor.pontuar(pontos);
+        verificarVencedorJogo(vencedor);
         finalizarRodada();
     }
 
-    private int calcularPontos(Truco truco) {
+    private int calcularPontosPadrao(Jogador jogador) {
+        Truco truco = rodadaAtual.getTruco();
         return truco == null ? 1 :
                 truco.isAceito() ? truco.getPontos() :
                         truco.getPontosAnteriores();
     }
 
     private void verificarVencedorJogo(Jogador jogador) throws GameWinnerException {
-        if (jogador.getPontos() >= 12) {
+        if (jogador.getPontos() >= PONTOS_VITORIA_JOGO) {
             throw new GameWinnerException(jogador);
         }
     }
@@ -122,6 +130,10 @@ public class Mesa {
         baralho.addCard(vira);
         dealer.juntarBaralho(new ArrayList<>(jogadores), rodadaAtual.getCartasUsadas(), baralho);
 
+        prepararNovaRodada();
+    }
+
+    private void prepararNovaRodada() {
         rodadaAtual = new Rodada(jogadores.peek());
 
         if (isFinalRound()) {
@@ -137,22 +149,44 @@ public class Mesa {
     }
 
     public void fugir() throws GameWinnerException {
-        Truco truco = rodadaAtual.getTruco();
-        if (truco == null) {
-            proximoJogador();
-            pontuarJogador(rodadaAtual.getVez());
+        if (isMaoDeOnze()) {
+            handleMaoDeOnzeFuga();
             return;
         }
-        pontuarJogador(truco.getQuemPediu());
+        handleFugaNormal();
+    }
+
+    private void handleMaoDeOnzeFuga() throws GameWinnerException {
+        Jogador vencedor = getProximoJogador();
+        vencedor.pontuar(PONTOS_FUGA_MAO_ONZE);
+        verificarVencedorJogo(vencedor);
+        finalizarRodada();
+    }
+
+    private void handleFugaNormal() throws GameWinnerException {
+        Truco truco = rodadaAtual.getTruco();
+        Jogador vencedor = truco != null ? truco.getQuemPediu() : getProximoJogador();
+        pontuarVencedor(vencedor);
+    }
+
+    private Jogador getProximoJogador() {
+        proximoJogador();
+        return rodadaAtual.getVez();
     }
 
     public void truco(int pontos) throws GameWinnerException {
         if (isMaoDeOnze()) {
-            proximoJogador();
-            pontuarJogador(rodadaAtual.getVez());
+            handleMaoDeOnzeTruco();
             return;
         }
+        handleTrucoNormal(pontos);
+    }
 
+    private void handleMaoDeOnzeTruco() throws GameWinnerException {
+        pontuarVencedor(getProximoJogador());
+    }
+
+    private void handleTrucoNormal(int pontos) {
         Truco truco = rodadaAtual.getTruco();
         boolean isNovoPedido = truco == null;
 
@@ -169,6 +203,7 @@ public class Mesa {
         return jogadores.stream().allMatch(jogador -> jogador.getPontos() == 11);
     }
 
+    // toString methods remain unchanged
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
