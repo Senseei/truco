@@ -17,7 +17,7 @@ public class Mesa {
     private final Dealer dealer;
     private final Baralho baralho;
     private Carta vira;
-    private List<Rodada> rodadas = new ArrayList<>();
+    private final List<Rodada> rodadas = new ArrayList<>();
     private Rodada rodadaAtual;
 
     private static final int PONTOS_FUGA_MAO_ONZE = 1;

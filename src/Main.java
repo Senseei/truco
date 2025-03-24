@@ -12,13 +12,13 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
         try (Scanner sc = new Scanner(System.in)) {
-            Queue<Jogador> jogadores = new LinkedList<>(Arrays.asList(new Jogador("Senseei"), new Jogador("Lunardi")));
+            TrucoUI ui = new TrucoUI(sc);
+
+            Queue<Jogador> jogadores = ui.prepararJogadores();
             Mesa mesa = Mesa.prepararMesa(jogadores, new Dealer());
 
-            // Initialize with empty actions - will be populated in updateScreen
-            List<String> actions = new ArrayList<>();
-            Screen screen = new Screen(mesa, mesa.getRodadaAtual().getVez().getMao(), actions);
-            TrucoUI ui = new TrucoUI(sc, screen);
+            Screen screen = new Screen(mesa, mesa.getRodadaAtual().getVez().getMao());
+            ui.setScreen(screen);
 
             // Initial screen update with proper actions
             ui.updateScreen(mesa);

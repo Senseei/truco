@@ -17,15 +17,19 @@ import java.util.Scanner;
 
 public class TrucoUI {
     private final Scanner sc;
-    private final Screen screen;
+    private Screen screen;
+
+    public TrucoUI(Scanner sc) {
+        this.sc = sc;
+    }
 
     public TrucoUI(Scanner sc, Screen screen) {
         this.sc = sc;
         this.screen = screen;
     }
 
-    public Screen getScreenBuilder() {
-        return screen;
+    public void setScreen(Screen screen) {
+        this.screen = screen;
     }
 
     // ===== Screen Management Methods =====

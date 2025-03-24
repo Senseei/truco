@@ -4,19 +4,19 @@ import entities.Carta;
 import game.Mesa;
 import game.Truco;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Screen {
     private Mesa mesa;
     private List<Carta> maoDoJogador;
-    private List<String> actions;
+    private List<String> actions = new ArrayList<>();
     private String footer;
     private String error;
 
-    public Screen(Mesa mesa, List<Carta> maoDoJogador, List<String> actions) {
+    public Screen(Mesa mesa, List<Carta> maoDoJogador) {
         this.mesa = mesa;
         this.maoDoJogador = maoDoJogador;
-        this.actions = actions;
     }
 
     public Mesa getMesa() {
